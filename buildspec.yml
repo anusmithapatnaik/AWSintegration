@@ -1,0 +1,33 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+     - mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=ausmanki_demo -Dsonar.login=f82fdc09f19d6d8e94e4bba4d4a03888bc1534fa
+     - mvn clean install dependency-check:check
+     - mv target/dependency-check-reports reports/
+     - BUILD_NUMBER=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | tr -d '[:alpha:]')
+     - zip -r owasp-report-build-${BUILD_NUMBER}.zip reports/
+  build:
+    commands:
+      - mvn clean install
+  post_build:
+    commands:
+      ## aws s3 cp target/*.war s3://myhhbucket23 . We don't need this step.
+      - wget https://github.com/zaproxy/zaproxy/releases/download/v2.14.0/ZAP_2.14.0_Linux.tar.gz
+      - tar -xvf ZAP_2.14.0_Linux.tar.gz
+      - cd ZAP_2.14.0
+      - ./zap.sh -cmd -quickurl http://ec2-65-1-95-179.ap-south-1.compute.amazonaws.com:8080/Web1/ -quickprogress -quickout ../zap_report.html
+      - echo Build completed
+artifacts:
+  files:
+    - target/*.war
+    - scripts/server_start.sh
+    - scripts/server_stop.sh
+    - TestXMLFile.xml
+    - appspec.yml
+    - owasp-report-build-*.zip
+    - zap_report.html
+
+   
+  discard-paths: yes
